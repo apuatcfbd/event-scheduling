@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"github.com/dipeshdulal/event-scheduling/dbdrivers"
 	"log"
 	"os"
 	"os/signal"
@@ -27,10 +28,13 @@ func main() {
 		log.Fatal("Error loading .env file ", err)
 	}
 
-	db := initDBConnection()
-	seedDB(db)
+	dbc := dbdrivers.GetDbConn()
+	seeder := dbdrivers.GetDbSeeder()
+	if err := seeder(dbc); err != nil {
+		log.Fatal("Failed to seed db", err)
+	}
 
-	scheduler := NewScheduler(db, eventListeners)
+	scheduler := NewScheduler(dbc, eventListeners)
 
 	stopCron := scheduler.StartCron()
 	defer stopCron()

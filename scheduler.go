@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"database/sql"
+	"github.com/dipeshdulal/event-scheduling/dbdrivers"
 	"log"
 	"time"
 
@@ -53,7 +54,7 @@ func (s Scheduler) callListeners(event Event) {
 	eventFn, ok := s.listeners[event.Name]
 	if ok {
 		go eventFn(event.Payload)
-		_, err := s.db.Exec(`DELETE FROM "public"."jobs" WHERE "id" = $1`, event.ID)
+		_, err := dbdrivers.GetDeleteEventQuery()(s.db, event.ID)
 		if err != nil {
 			log.Print("💀 error: ", err)
 		}
@@ -87,7 +88,7 @@ func (s Scheduler) CheckEventsInInterval(ctx context.Context, duration time.Dura
 // checkDueEvents checks and returns due events
 func (s Scheduler) checkDueEvents() []Event {
 	events := []Event{}
-	rows, err := s.db.Query(`SELECT "id", "name", "payload" FROM "public"."jobs" WHERE "runAt" < $1 AND "cron"='-'`, time.Now())
+	rows, err := dbdrivers.GetDueEventsQuery()(s.db)
 	if err != nil {
 		log.Print("💀 error: ", err)
 		return nil
@@ -100,10 +101,10 @@ func (s Scheduler) checkDueEvents() []Event {
 	return events
 }
 
-// Schedule sechedules the provided events
+// Schedule schedules the provided events
 func (s Scheduler) Schedule(event string, payload string, runAt time.Time) {
 	log.Print("🚀 Scheduling event ", event, " to run at ", runAt)
-	_, err := s.db.Exec(`INSERT INTO "public"."jobs" ("name", "payload", "runAt") VALUES ($1, $2, $3)`, event, payload, runAt)
+	_, err := dbdrivers.GetScheduleEventQuery()(s.db, event, payload, runAt)
 	if err != nil {
 		log.Print("schedule insert error: ", err)
 	}
@@ -115,12 +116,12 @@ func (s Scheduler) ScheduleCron(event string, payload string, cron string) {
 	entryID, ok := s.cronEntries[event]
 	if ok {
 		s.cron.Remove(entryID)
-		_, err := s.db.Exec(`UPDATE "public"."jobs" SET "cron" = $1 , "payload" = $2 WHERE "name" = $3 AND "cron" != '-'`, cron, payload, event)
+		_, err := dbdrivers.GetUpdateEventQuery()(s.db, cron, payload, event)
 		if err != nil {
 			log.Print("schedule cron update error: ", err)
 		}
 	} else {
-		_, err := s.db.Exec(`INSERT INTO "public"."jobs" ("name", "payload", "runAt", "cron") VALUES ($1, $2, $3, $4)`, event, payload, time.Now(), cron)
+		_, err := dbdrivers.GetScheduleEventWithCronQuery()(s.db, event, payload, cron, time.Now())
 		if err != nil {
 			log.Print("schedule cron insert error: ", err)
 		}
@@ -139,7 +140,7 @@ func (s Scheduler) ScheduleCron(event string, payload string, cron string) {
 // attachCronJobs attaches cron jobs
 func (s Scheduler) attachCronJobs() {
 	log.Printf("Attaching cron jobs")
-	rows, err := s.db.Query(`SELECT "id", "name", "payload", "cron" FROM "public"."jobs" WHERE "cron"!='-'`)
+	rows, err := dbdrivers.GetEmptyCronEventsQuery()(s.db)
 	if err != nil {
 		log.Print("💀 error: ", err)
 	}

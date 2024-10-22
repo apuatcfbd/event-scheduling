@@ -1,16 +1,15 @@
-package main
+package pg
 
 import (
 	"database/sql"
-	"log"
-	"os"
-
+	"github.com/dipeshdulal/event-scheduling/config"
 	_ "github.com/lib/pq"
+	"log"
 )
 
-func initDBConnection() *sql.DB {
-	connStr := os.Getenv("DB_DSN")
-	db, err := sql.Open("postgres", connStr)
+func InitDBConnection() *sql.DB {
+	driver, connStr := config.EnvDBDriver(), config.EnvDBDsn()
+	db, err := sql.Open(driver, connStr)
 
 	if err != nil {
 		log.Panic("couldn't connect to database", err)
@@ -19,15 +18,15 @@ func initDBConnection() *sql.DB {
 	return db
 }
 
-func seedDB(db *sql.DB) error {
+func SeedDB(db *sql.DB) error {
 	log.Print("💾 Seeding database with table...")
 	_, err := db.Exec(`
 		CREATE TABLE IF NOT EXISTS "public"."jobs" (
 			"id"      SERIAL PRIMARY KEY,
-			"name"    varchar(50) NOT NULL,
+			"name"    VARCHAR(50) NOT NULL,
 			"payload" text,
 			"runAt"   TIMESTAMP NOT NULL,
-			"cron"    varchar(50) DEFAULT '-'
+			"cron"    VARCHAR(50) DEFAULT '-'
 		)
 	`)
 
