@@ -1,11 +1,19 @@
 package config
 
 import (
+	"github.com/joho/godotenv"
 	"log"
 	"os"
 	"slices"
 	"strings"
 )
+
+func init() {
+	// load .env file
+	if err := godotenv.Load(".env"); err != nil {
+		log.Fatal("Error loading .env file.", err.Error())
+	}
+}
 
 // EnvDBDriver returns env key "DB_DRIVER"'s value after validating
 func EnvDBDriver() string {
